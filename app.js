@@ -4,6 +4,9 @@ const app = express();
 const path = require("path");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
+const format = require("date-fns/format");
+const isMatch = require("date-fns/isMatch");
+const isValid = require("date-fns/isValid");
 
 const dbPath = path.join(__dirname, "todoApplication.db");
 app.use(express.json());
@@ -25,6 +28,17 @@ const initializeDBAndServer = async () => {
 };
 
 initializeDBAndServer();
+
+const outputQuery = (eachItem) => {
+  return {
+    id: eachItem.id,
+    todo: eachItem.todo,
+    priority: eachItem.priority,
+    category: eachItem.category,
+    status: eachItem.status,
+    dueDate: eachItem.dueDate,
+  };
+};
 
 const hasCategoryAndStatus = (requestQuery) => {
   return (
@@ -145,16 +159,65 @@ app.get(`/todos/:todoId/`, async (request, response) => {
 
 //API-3
 app.get("/agenda/", async (request, response) => {
-  const date = format(new Date(2021, 1, 21), "yyyy-MM-dd");
-  const dateQuery = `
+  const { date } = request.query;
+  console.log(isMatch(date, "yyyy-MM-dd"));
+
+  if (isMatch(date, "yyyy-MM-dd")) {
+    const newDate = format(new Date(date), "yyyy-MM-dd");
+    console.log(newDate);
+
+    const dateQuery = `
   SELECT
     *
   FROM
     todo
   WHERE
-    due_date=${date};`;
-  const dateBased = await db.get(dateQuery);
-  response.send(dateBased);
+    due_date=${newDate};`;
+    const dateBased = await db.all(dateQuery);
+    response.send(dateBased);
+  } else {
+    response.status(400);
+    response.send("Invalid Due Date");
+  }
 });
 
+//API-4
+app.post("/todos/", async (request, response) => {
+  const { id, todo, priority, status, category, dueDate } = request.body;
+
+  const postMethod = `
+    INSERT INTO todo(id,todo,priority,status,category,dueDate)
+    VALUES (${id},${todo},${priority},${status},${category},${dueDate});`;
+
+  await db.run(postMethod);
+  response.send("Todo Successfully Added");
+});
+
+//API-5
+app.put("/todos/:todoId/", async (request, response) => {
+  const { todoId } = request.params;
+  const { status, priority, todo, category, dueDate } = requist.body;
+
+  const putMethod = `
+    UPDATE todo
+    SET id=${todoId},
+        status=${status},
+        priority=${priority},
+        todo=${todo},
+        category=${category},
+        dueDate=${dueDate}
+    WHERE id=${todoId};`;
+  await db.run(putMethod);
+  response.send("Status Updated");
+});
+
+//API-6
+app.delete("/todos/:todoId/", async (request, response) => {
+  const { todoId } = request.params;
+
+  const deleteQuery = `
+    DELETE FROM todo WHERE id=${todoId};`;
+  await db.run(deleteQuery);
+  response.send("Todo Deleted");
+});
 module.exports = app;
